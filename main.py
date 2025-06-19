@@ -1,36 +1,58 @@
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel
+from dotenv import load_dotenv
+from src.workflow import Workflow
+
+load_dotenv()
 
 
-class CompanyAnalysis(BaseModel):
-    """Structured output for LLM company analysis focused on developer tools"""
-    pricing_model: str  # Free, Freemium, Paid, Enterprise, Unknown
-    is_open_source: Optional[bool] = None
-    tech_stack: List[str] = []
-    description: str = ""
-    api_available: Optional[bool] = None
-    language_support: List[str] = []
-    integration_capabilities: List[str] = []
+def main():
+    workflow = Workflow()
+    print("Developer Tools Research Agent")
+
+    while True:
+        query = input("\n🔍 Developer Tools Query: ").strip()
+        if query.lower() in {"quit", "exit"}:
+            break
+
+        if query:
+            result = workflow.run(query)
+            print(f"\n📊 Results for: {query}")
+            print("=" * 60)
+
+            for i, company in enumerate(result.companies, 1):
+                print(f"\n{i}. 🏢 {company.name}")
+                print(f"   🌐 Website: {company.website}")
+                print(f"   💰 Pricing: {company.pricing_model}")
+                print(f"   📖 Open Source: {company.is_open_source}")
+
+                if company.tech_stack:
+                    print(f"   🛠️  Tech Stack: {', '.join(company.tech_stack[:5])}")
+
+                if company.language_support:
+                    print(
+                        f"   💻 Language Support: {', '.join(company.language_support[:5])}"
+                    )
+
+                if company.api_available is not None:
+                    api_status = (
+                        "✅ Available" if company.api_available else "❌ Not Available"
+                    )
+                    print(f"   🔌 API: {api_status}")
+
+                if company.integration_capabilities:
+                    print(
+                        f"   🔗 Integrations: {', '.join(company.integration_capabilities[:4])}"
+                    )
+
+                if company.description and company.description != "Analysis failed":
+                    print(f"   📝 Description: {company.description}")
+
+                print()
+
+            if result.analysis:
+                print("Developer Recommendations: ")
+                print("-" * 40)
+                print(result.analysis)
 
 
-class CompanyInfo(BaseModel):
-    name: str
-    description: str
-    website: str
-    pricing_model: Optional[str] = None
-    is_open_source: Optional[bool] = None
-    tech_stack: List[str] = []
-    competitors: List[str] = []
-    # Developer-specific fields
-    api_available: Optional[bool] = None
-    language_support: List[str] = []
-    integration_capabilities: List[str] = []
-    developer_experience_rating: Optional[str] = None  # Poor, Good, Excellent
-
-
-class ResearchState(BaseModel):
-    query: str
-    extracted_tools: List[str] = []  # Tools extracted from articles
-    companies: List[CompanyInfo] = []
-    search_results: List[Dict[str, Any]] = []
-    analysis: Optional[str] = None
+if __name__ == "__main__":
+    main()

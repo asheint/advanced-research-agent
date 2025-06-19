@@ -1,19 +1,19 @@
-from http.client import responses
-from re import search
 from typing import Dict, Any
 from langgraph.graph import StateGraph, END
+from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
-from pyexpat.errors import messages
-
 from .models import ResearchState, CompanyInfo, CompanyAnalysis
 from .firecrawl import FirecrawlService
 from .prompts import DeveloperToolsPrompts
 
+
 class Workflow:
     def __init__(self):
         self.firecrawl = FirecrawlService()
-        self.llm = DeveloperToolsPrompts()
-        self.workflow = self.build_workflow()
+        self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.1)
+        self.prompts = DeveloperToolsPrompts()
+        self.workflow = self._build_workflow()
+
     def _build_workflow(self):
         graph = StateGraph(ResearchState)
         graph.add_node("extract_tools", self._extract_tools_step)
@@ -32,10 +32,9 @@ class Workflow:
         search_results = self.firecrawl.search_companies(article_query, num_results=3)
 
         all_content = ""
-
-        for result in search_results:
+        for result in search_results.data:
             url = result.get("url", "")
-            scraped = self.firecrawl.scrape(url)
+            scraped = self.firecrawl.scrape_company_pages(url)
             if scraped:
                 all_content + scraped.markdown[:1500] + "\n\n"
 
@@ -46,16 +45,16 @@ class Workflow:
 
         try:
             response = self.llm.invoke(messages)
-            tool_name = [
+            tool_names = [
                 name.strip()
                 for name in response.content.strip().split("\n")
-                if name.stripe()
+                if name.strip()
             ]
-            print(f"Extracted tools: {', '.join(tool_name[:5])}")
-            return {"extracted_tools": tool_name}
+            print(f"Extracted tools: {', '.join(tool_names[:5])}")
+            return {"extracted_tools": tool_names}
         except Exception as e:
             print(e)
-            return {"exctracted_tools": []}
+            return {"extracted_tools": []}
 
     def _analyze_company_content(self, company_name: str, content: str) -> CompanyAnalysis:
         structured_llm = self.llm.with_structured_output(CompanyAnalysis)
@@ -79,6 +78,7 @@ class Workflow:
                 language_support=[],
                 integration_capabilities=[],
             )
+
 
     def _research_step(self, state: ResearchState) -> Dict[str, Any]:
         extracted_tools = getattr(state, "extracted_tools", [])
